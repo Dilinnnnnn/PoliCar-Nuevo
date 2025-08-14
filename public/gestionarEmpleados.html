@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POLI-Cfunction formatearSalario(salario) {
+    const salarioNumerico = parseFloat(salario);
+    if (isNaN(salarioNumerico)) return '$0.00';
+    return `$${salarioNumerico.toFixed(2)}`;
+}
+
+// Inicializar cuando el DOM esté listo
+document.addEventListener('DOMContentLoaded', function() {
+    // Configurar sede actual
+    const sedeActualElement = document.getElementById('sede-actual');
+    if (sedeActualElement) {
+        const sedeActual = localStorage.getItem('sedeActual') || 'SUR';
+        sedeActualElement.textContent = sedeActual;
+    }
+
+    // Configurar listeners de formularios
+    const formulario = document.getElementById('modalEmpleadoCompletoForm');
+    if (formulario) {
+        formulario.addEventListener('submit', manejarSubmitEmpleadoCompleto);
+    }
+    
+    // Cargar empleados inicial
+    cargarEmpleados();
+});- Gestionar Empleados</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="container">
+    <h1>👨‍💼 Gestión de Empleados</h1>
+    <p style="text-align: center; color: #7f8c8d; margin-bottom: 20px;">
+        📍 Sede actual: <strong id="sede-actual">Central</strong> | 
+        Datos fragmentados por sede
+    </p>
+    
+    <!-- Pestañas para cambiar entre secciones -->
+    <div class="tabs-container" style="margin-bottom: 20px;">
+        <button class="tab-btn active" onclick="cambiarTab('sede')">
+            🏢 Empleados de Mi Sede
+        </button>
+        <button class="tab-btn" onclick="cambiarTab('nomina')">
+            💰 Todos los Empleados con Nómina
+        </button>
+    </div>
+
+    <!-- SECCIÓN: EMPLEADOS DE MI SEDE -->
+    <div id="seccion-sede" class="tab-content">
+        <div class="section-actions">
+            <button class="btn btn-primary" onclick="mostrarFormularioNuevoEmpleado()">
+                ➕ Nuevo Empleado Completo
+            </button>
+            <button class="btn btn-secondary" onclick="cargarEmpleadosSede()">
+                🔄 Actualizar Lista
+            </button>
+            <button class="btn btn-secondary" onclick="location.href='dashboard.html'">
+                ← Volver al Dashboard
+            </button>
+        </div>
+        
+        <div class="table-container">
+            <table id="empleadosSedeTable" class="data-table">
+                <thead>
+                    <tr>
+                        <th>Cédula</th>
+                        <th>Nombre</th>
+                        <th>Sede</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="4" class="loading">Cargando empleados de sede...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- SECCIÓN: TODOS LOS EMPLEADOS CON NÓMINA -->
+    <div id="seccion-nomina" class="tab-content" style="display: none;">
+        <div class="section-actions">
+            <button class="btn btn-primary" onclick="mostrarFormularioNuevoEmpleado()">
+                ➕ Nuevo Empleado Completo
+            </button>
+            <button class="btn btn-secondary" onclick="cargarEmpleadosNomina()">
+                🔄 Actualizar Lista
+            </button>
+            <button class="btn btn-secondary" onclick="location.href='dashboard.html'">
+                ← Volver al Dashboard
+            </button>
+        </div>
+        
+        <div class="table-container">
+            <table id="empleadosNominaTable" class="data-table">
+                <thead>
+                    <tr>
+                        <th>Cédula</th>
+                        <th>Nombre</th>
+                        <th>Sede</th>
+                        <th>Fecha Inicio</th>
+                        <th>Salario</th>
+                        <th>Días Trabajados</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="7" class="loading">Cargando empleados de nómina...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- FORMULARIO MODAL UNIFICADO PARA NUEVO EMPLEADO COMPLETO -->
+<div id="formularioEmpleadoCompleto" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 12px; max-width: 600px; width: 90%; max-height: 90%; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.3);">
+        <h3 style="text-align: center; margin-bottom: 25px; color: #333;">
+            👥 Crear Nuevo Empleado Completo
+        </h3>
+        
+        <form id="modalEmpleadoCompletoForm">
+            <!-- Información Básica -->
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                <h4 style="margin-bottom: 15px; color: #495057;">📋 Información Básica</h4>
+                <div class="form-group">
+                    <label>Cédula:</label>
+                    <input type="text" id="modalEmpleadoCedula" required maxlength="10" placeholder="1234567890">
+                </div>
+                <div class="form-group">
+                    <label>Nombre Completo:</label>
+                    <input type="text" id="modalEmpleadoNombre" required placeholder="Juan Carlos Pérez González">
+                </div>
+                <div class="form-group">
+                    <label>Sede de Trabajo:</label>
+                    <select id="modalEmpleadoSede" required>
+                        <option value="">Seleccionar sede</option>
+                        <option value="NORTE">🏢 Norte</option>
+                        <option value="SUR">🏢 Sur</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Información de Nómina -->
+            <div style="background: #e8f5e8; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                <h4 style="margin-bottom: 15px; color: #28a745;">💰 Información de Nómina</h4>
+                <div class="form-group">
+                    <label>Fecha de Inicio:</label>
+                    <input type="date" id="modalEmpleadoFecha" required>
+                </div>
+                <div class="form-group">
+                    <label>Salario Mensual (USD):</label>
+                    <input type="number" id="modalEmpleadoSalario" required step="0.01" min="0" placeholder="800.00">
+                </div>
+            </div>
+
+            <div class="form-actions" style="text-align: center; margin-top: 25px;">
+                <button type="submit" class="btn btn-success" style="margin-right: 10px;">
+                    ✅ Crear Empleado Completo
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="cerrarFormularioCompleto()">
+                    ❌ Cancelar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// Variables globales
+let modoEdicionSede = false;
+let modoEdicionNomina = false;
+let cedulaOriginalSede = '';
+let cedulaOriginalNomina = '';
+let tabActual = 'sede';
+
+// Función helper para formatear salarios (en USD)
+function formatearSalario(salario) {
+    const salarioNumerico = parseFloat(salario) || 0;
+    
+    // Para salarios en USD, no necesitamos auto-formatear
+    // Rangos típicos: $300 - $5000 USD mensuales
+    console.log(`� DEBUG: Salario en USD: $${salarioNumerico}`);
+    
+    return salarioNumerico;
+}
+
+// Inicializar página
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🧪 DEBUG: DOM cargado, inicializando página...');
+    
+    const sedeActual = localStorage.getItem('sedeActual') || 'Central';
+    const sedeElement = document.getElementById('sede-actual');
+    if (sedeElement) {
+        sedeElement.textContent = sedeActual;
+        console.log('✅ DEBUG: Sede actual configurada:', sedeActual);
+    } else {
+        console.error('❌ DEBUG: No se encontró el elemento sede-actual');
+    }
+    
+    cargarEmpleadosSede();
+    
+    // Event listeners para formularios
+    console.log('🧪 DEBUG: Configurando listeners de formularios...');
+    
+    // Solo configurar listeners para formularios que realmente existen
+    const modalForm = document.getElementById('modalEmpleadoCompletoForm');
+    if (modalForm) {
+        modalForm.addEventListener('submit', guardarEmpleadoCompleto);
+        console.log('✅ DEBUG: Listener del modal configurado correctamente');
+    } else {
+        console.error('❌ DEBUG: No se encontró el formulario modalEmpleadoCompletoForm');
+    }
+    
+    console.log('✅ DEBUG: Inicialización de página completada');
+});
+
+// Cambiar entre tabs
+function cambiarTab(tab) {
+    // Ocultar todas las secciones
+    document.getElementById('seccion-sede').style.display = 'none';
+    document.getElementById('seccion-nomina').style.display = 'none';
+    
+    // Remover clase activa de todos los botones
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    
+    // Mostrar sección seleccionada
+    if (tab === 'sede') {
+        document.getElementById('seccion-sede').style.display = 'block';
+        document.querySelectorAll('.tab-btn')[0].classList.add('active');
+        cargarEmpleadosSede();
+    } else if (tab === 'nomina') {
+        document.getElementById('seccion-nomina').style.display = 'block';
+        document.querySelectorAll('.tab-btn')[1].classList.add('active');
+        cargarEmpleadosNomina();
+    }
+    
+    tabActual = tab;
+}
+
+// Función para mostrar el modal del formulario completo
+function mostrarFormularioNuevoEmpleado() {
+    console.log('🧪 DEBUG: Abriendo modal de empleado completo');
+    document.getElementById('formularioEmpleadoCompleto').style.display = 'block';
+    // Configurar fecha por defecto
+    const hoy = new Date().toISOString().split('T')[0];
+    document.getElementById('modalEmpleadoFecha').value = hoy;
+    // Limpiar formulario
+    document.getElementById('modalEmpleadoCompletoForm').reset();
+    document.getElementById('modalEmpleadoFecha').value = hoy;
+    console.log('✅ DEBUG: Modal abierto correctamente');
+}
+
+// Función para cerrar el modal del formulario completo
+function cerrarFormularioCompleto() {
+    console.log('🧪 DEBUG: Cerrando modal del formulario completo');
+    
+    document.getElementById('formularioEmpleadoCompleto').style.display = 'none';
+    document.getElementById('modalEmpleadoCompletoForm').reset();
+    
+    // Resetear el estado de edición
+    document.getElementById('modalEmpleadoCedula').removeAttribute('data-editing');
+    document.getElementById('modalEmpleadoCedula').readOnly = false;
+    
+    // Restaurar el título y botón originales
+    document.querySelector('#formularioEmpleadoCompleto h3').textContent = '👥 Crear Nuevo Empleado Completo';
+    const btnSubmit = document.querySelector('#formularioEmpleadoCompleto button[type="submit"]');
+    btnSubmit.textContent = '✅ Crear Empleado Completo';
+    
+    console.log('✅ DEBUG: Modal cerrado y resetado');
+}
+
+// ========== EMPLEADOS POR SEDE ==========
+
+// Cargar empleados de sede específica
+async function cargarEmpleadosSede() {
+    try {
+        const tbody = document.querySelector('#empleadosSedeTable tbody');
+        tbody.innerHTML = '<tr><td colspan="4" class="loading">Cargando empleados de sede...</td></tr>';
+        
+        // Obtener sede actual del localStorage
+        const sedeActual = localStorage.getItem('sedeActual') || 'NORTE';
+        
+        const response = await fetch('/api/empleados');
+        const data = await response.json();
+        
+        if (data.success && data.data.length > 0) {
+            // Filtrar solo empleados de la sede actual
+            const empleadosDeSede = data.data.filter(emp => emp.sede_taller === sedeActual);
+            
+            if (empleadosDeSede.length > 0) {
+                tbody.innerHTML = empleadosDeSede.map(emp => `
+                    <tr>
+                        <td>${emp.cedula_empleado}</td>
+                        <td>${emp.nombre_empleado}</td>
+                        <td>
+                            <span class="badge ${emp.sede_taller === 'NORTE' ? 'badge-norte' : 'badge-sur'}">
+                                🏢 ${emp.sede_taller}
+                            </span>
+                        </td>
+                        <td class="actions">
+                            <button class="btn btn-small btn-warning" onclick="editarEmpleadoSede('${emp.cedula_empleado}')">
+                                ✏️ Editar
+                            </button>
+                            <button class="btn btn-small btn-danger" onclick="eliminarEmpleadoSede('${emp.cedula_empleado}')">
+                                🗑️ Eliminar
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+            } else {
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #7f8c8d;">No hay empleados registrados en sede ${sedeActual}</td></tr>`;
+            }
+        } else {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #7f8c8d;">No hay empleados registrados</td></tr>';
+        }
+        
+        console.log(`✅ Empleados de sede ${sedeActual} cargados`);
+    } catch (error) {
+        console.error('Error:', error);
+        document.querySelector('#empleadosSedeTable tbody').innerHTML = 
+            '<tr><td colspan="4" style="text-align: center; color: #e74c3c;">Error cargando empleados</td></tr>';
+    }
+}
+
+// Mostrar formulario para agregar empleado de sede
+function mostrarFormularioAgregar(tipo) {
+    if (tipo === 'sede') {
+        modoEdicionSede = false;
+        document.getElementById('tituloFormularioSede').textContent = 'Nuevo Empleado de Sede';
+        document.getElementById('empleadoSedeForm').reset();
+        document.getElementById('formularioEmpleadoSede').style.display = 'block';
+    } else {
+        modoEdicionNomina = false;
+        document.getElementById('tituloFormularioNomina').textContent = 'Nuevo Empleado en Nómina';
+        document.getElementById('empleadoNominaForm').reset();
+        document.getElementById('formularioEmpleadoNomina').style.display = 'block';
+    }
+}
+
+// Cancelar formulario
+function cancelarFormulario(tipo) {
+    if (tipo === 'sede') {
+        document.getElementById('formularioEmpleadoSede').style.display = 'none';
+        modoEdicionSede = false;
+    } else if (tipo === 'nomina') {
+        document.getElementById('formularioNomina').style.display = 'none';
+        
+        // Restaurar el estado original del formulario de nómina
+        const tituloForm = document.querySelector('#formularioNomina h3');
+        tituloForm.textContent = '➕ Agregar Empleado a Nómina';
+        
+        const btnGuardar = document.querySelector('#formularioNomina button[type="submit"]');
+        btnGuardar.textContent = '💾 Guardar';
+        
+        // Rehabilitar el campo cédula
+        document.getElementById('empleadoNominaCedula').readOnly = false;
+        document.getElementById('empleadoNominaCedula').style.backgroundColor = '';
+        
+        // Restaurar la función original del formulario
+        document.getElementById('formNomina').onsubmit = guardarEmpleadoNomina;
+        
+        // Limpiar el formulario
+        document.getElementById('formNomina').reset();
+    }
+}
+
+// Guardar empleado de sede
+async function guardarEmpleadoSede(event) {
+    event.preventDefault();
+    
+    const cedula = document.getElementById('empleadoSedeCedula').value;
+    const nombre = document.getElementById('empleadoSedeNombre').value;
+    const sede = document.getElementById('empleadoSedeTaller').value;
+    
+    const empleadoData = {
+        cedula_empleado: cedula,
+        nombre_empleado: nombre,
+        sede_taller: sede
+    };
+    
+    try {
+        const url = modoEdicionSede ? `/api/empleados/${cedulaOriginalSede}` : '/api/empleados';
+        const method = modoEdicionSede ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(empleadoData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(modoEdicionSede ? '✅ Empleado actualizado correctamente' : '✅ Empleado agregado correctamente');
+            cancelarFormulario('sede');
+            cargarEmpleadosSede();
+        } else {
+            alert('❌ Error: ' + result.message);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('❌ Error al guardar empleado');
+    }
+}
+
+// Editar empleado de sede
+async function editarEmpleadoSede(cedula) {
+    try {
+        console.log('🧪 DEBUG: Editando empleado de sede:', cedula);
+        
+        const response = await fetch('/api/empleados');
+        const data = await response.json();
+        
+        const empleado = data.data.find(emp => emp.cedula_empleado === cedula);
+        if (empleado) {
+            console.log('✅ DEBUG: Datos del empleado encontrados:', empleado);
+            
+            // Usar el modal existente para editar
+            document.getElementById('modalEmpleadoCedula').value = empleado.cedula_empleado;
+            document.getElementById('modalEmpleadoNombre').value = empleado.nombre_empleado;
+            document.getElementById('modalEmpleadoSede').value = empleado.sede_taller;
+            
+            // Para la edición necesitamos también datos de nómina
+            const nominaResponse = await fetch('/api/empleados/nomina');
+            const nominaData = await nominaResponse.json();
+            
+            if (nominaData.success && nominaData.data) {
+                const empleadoNomina = nominaData.data.find(emp => emp.cedula_empleado === cedula);
+                if (empleadoNomina) {
+                    if (empleadoNomina.fecha_comienzo) {
+                        const fecha = new Date(empleadoNomina.fecha_comienzo);
+                        const fechaFormateada = fecha.toISOString().split('T')[0];
+                        document.getElementById('modalEmpleadoFecha').value = fechaFormateada;
+                    }
+                    
+                    // Formatear el salario correctamente
+                    const salarioFormateado = formatearSalario(empleadoNomina.salario);
+                    document.getElementById('modalEmpleadoSalario').value = salarioFormateado;
+                }
+            }
+            
+            // Cambiar el título del modal
+            document.querySelector('#formularioEmpleadoCompleto h3').textContent = '✏️ Editar Empleado';
+            
+            // Cambiar el botón
+            const btnSubmit = document.querySelector('#formularioEmpleadoCompleto button[type="submit"]');
+            btnSubmit.textContent = '💾 Actualizar Empleado';
+            
+            // Marcar como modo edición
+            document.getElementById('modalEmpleadoCedula').setAttribute('data-editing', cedula);
+            document.getElementById('modalEmpleadoCedula').readOnly = true;
+            
+            // Mostrar el modal
+            document.getElementById('formularioEmpleadoCompleto').style.display = 'block';
+            
+            console.log('✅ DEBUG: Modal de edición abierto');
+        } else {
+            console.error('❌ DEBUG: Empleado no encontrado');
+            alert('❌ No se encontró el empleado');
+        }
+    } catch (error) {
+        console.error('💥 DEBUG: Error al editar empleado:', error);
+        alert('❌ Error al cargar datos del empleado: ' + error.message);
+    }
+}
+
+// Eliminar empleado de sede
+async function eliminarEmpleadoSede(cedula) {
+    if (!confirm('¿Estás seguro de que deseas eliminar este empleado?')) return;
+    
+    try {
+        const response = await fetch(`/api/empleados/${cedula}`, {
+            method: 'DELETE'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('✅ Empleado eliminado correctamente');
+            cargarEmpleadosSede();
+        } else {
+            alert('❌ Error: ' + result.message);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('❌ Error al eliminar empleado');
+    }
+}
+
+// ========== EMPLEADOS CON NÓMINA ==========
+
+// Cargar empleados con nómina completa
+async function cargarEmpleadosNomina() {
+    try {
+        console.log('🔄 DEBUG: Iniciando carga de empleados con nómina...');
+        const tbody = document.querySelector('#empleadosNominaTable tbody');
+        tbody.innerHTML = '<tr><td colspan="7" class="loading">Cargando empleados de nómina...</td></tr>';
+        
+        const response = await fetch('/api/empleados/nomina');
+        const data = await response.json();
+        
+        console.log('📥 DEBUG: Datos de nómina recibidos:', data);
+        console.log('📥 DEBUG: Cantidad de empleados:', data.data ? data.data.length : 0);
+        
+        if (data.success && data.data.length > 0) {
+            // Debug: mostrar los primeros registros para verificar estructura
+            console.log('📊 DEBUG: Primeros registros:', data.data.slice(0, 2));
+            
+            tbody.innerHTML = data.data.map(emp => {
+                console.log('🔍 DEBUG: Procesando empleado:', emp.cedula_empleado, emp);
+                return `
+                <tr>
+                    <td>${emp.cedula_empleado}</td>
+                    <td>${emp.nombre_empleado || 'N/A'}</td>
+                    <td>
+                        <span class="badge ${emp.sede_taller === 'NORTE' ? 'badge-norte' : 'badge-sur'}">
+                            🏢 ${emp.sede_taller || 'N/A'}
+                        </span>
+                    </td>
+                    <td>${emp.fecha_comienzo ? new Date(emp.fecha_comienzo).toLocaleDateString('es-ES') : 'N/A'}</td>
+                    <td>$${emp.salario ? parseFloat(emp.salario).toFixed(2) : '0.00'} USD</td>
+                    <td>${emp.dias_trabajados || 'N/A'}</td>
+                    <td class="actions">
+                        <button class="btn btn-small btn-warning" onclick="editarEmpleadoNomina('${emp.cedula_empleado}')">
+                            ✏️ Editar
+                        </button>
+                        <button class="btn btn-small btn-danger" onclick="eliminarEmpleadoNomina('${emp.cedula_empleado}')">
+                            🗑️ Eliminar
+                        </button>
+                    </td>
+                </tr>`;
+            }).join('');
+            console.log('✅ DEBUG: Tabla de nómina actualizada');
+        } else {
+            console.log('⚠️ DEBUG: No hay empleados en nómina o error en datos');
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #7f8c8d;">No hay empleados en nómina</td></tr>';
+        }
+    } catch (error) {
+        console.error('💥 DEBUG: Error cargando empleados de nómina:', error);
+        document.querySelector('#empleadosNominaTable tbody').innerHTML = 
+            '<tr><td colspan="7" style="text-align: center; color: #e74c3c;">Error cargando nómina</td></tr>';
+    }
+}
+
+// Guardar empleado en nómina
+async function guardarEmpleadoNomina(event) {
+    event.preventDefault();
+    
+    const cedula = document.getElementById('empleadoNominaCedula').value;
+    const fecha = document.getElementById('empleadoNominaFecha').value;
+    const salario = document.getElementById('empleadoNominaSalario').value;
+    
+    const nominaData = {
+        cedula_empleado: cedula,
+        fecha_comienzo: fecha,
+        salario: parseFloat(salario)
+    };
+    
+    try {
+        const url = '/api/empleados/nomina';
+        const method = 'POST';
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(nominaData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('✅ Empleado agregado a nómina correctamente');
+            cancelarFormulario('nomina');
+            cargarEmpleadosNomina();
+        } else {
+            alert('❌ Error: ' + result.message);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('❌ Error al guardar en nómina');
+    }
+}
+
+// Editar empleado en nómina
+async function editarEmpleadoNomina(cedula) {
+    try {
+        console.log('🧪 DEBUG: Editando empleado de nómina:', cedula);
+        
+        // Cargar datos del empleado en nómina
+        const nominaResponse = await fetch('/api/empleados/nomina');
+        const nominaData = await nominaResponse.json();
+        
+        if (!nominaData.success || !nominaData.data) {
+            alert('❌ Error al obtener datos de nómina');
+            return;
+        }
+
+        const empleadoNomina = nominaData.data.find(emp => emp.cedula_empleado === cedula);
+        
+        if (!empleadoNomina) {
+            alert('❌ No se encontró el empleado en nómina');
+            return;
+        }
+
+        // También cargar datos básicos del empleado
+        const response = await fetch('/api/empleados');
+        const data = await response.json();
+        const empleado = data.data.find(emp => emp.cedula_empleado === cedula);
+        
+        if (empleado) {
+            // Llenar el modal con todos los datos
+            document.getElementById('modalEmpleadoCedula').value = empleado.cedula_empleado;
+            document.getElementById('modalEmpleadoNombre').value = empleado.nombre_empleado;
+            document.getElementById('modalEmpleadoSede').value = empleado.sede_taller;
+            
+            // Formatear la fecha correctamente
+            if (empleadoNomina.fecha_comienzo) {
+                const fecha = new Date(empleadoNomina.fecha_comienzo);
+                const fechaFormateada = fecha.toISOString().split('T')[0];
+                document.getElementById('modalEmpleadoFecha').value = fechaFormateada;
+            }
+            
+            // Formatear el salario correctamente
+            const salarioFormateado = formatearSalario(empleadoNomina.salario);
+            document.getElementById('modalEmpleadoSalario').value = salarioFormateado;
+            
+            // Cambiar el título del modal
+            document.querySelector('#formularioEmpleadoCompleto h3').textContent = '✏️ Editar Empleado (Nómina)';
+            
+            // Cambiar el botón
+            const btnSubmit = document.querySelector('#formularioEmpleadoCompleto button[type="submit"]');
+            btnSubmit.textContent = '💾 Actualizar Empleado';
+            
+            // Marcar como modo edición
+            document.getElementById('modalEmpleadoCedula').setAttribute('data-editing', cedula);
+            document.getElementById('modalEmpleadoCedula').readOnly = true;
+            
+            // Mostrar el modal
+            document.getElementById('formularioEmpleadoCompleto').style.display = 'block';
+            
+            console.log('✅ DEBUG: Modal de edición de nómina abierto');
+        }
+    } catch (error) {
+        console.error('💥 DEBUG: Error al editar empleado de nómina:', error);
+        alert('❌ Error al cargar datos del empleado: ' + error.message);
+    }
+}
+
+// Actualizar empleado en nómina
+async function actualizarEmpleadoNomina(cedula) {
+    const fecha = document.getElementById('empleadoNominaFecha').value;
+    const salario = document.getElementById('empleadoNominaSalario').value;
+    
+    if (!fecha || !salario) {
+        alert('❌ Por favor complete todos los campos');
+        return;
+    }
+    
+    const nominaData = {
+        fecha_comienzo: fecha,
+        salario: parseFloat(salario)
+    };
+    
+    try {
+        const response = await fetch(`/api/empleados/nomina/${cedula}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(nominaData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('✅ Empleado actualizado en nómina correctamente');
+            cancelarFormulario('nomina');
+            cargarEmpleadosNomina();
+        } else {
+            alert('❌ Error: ' + result.message);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('❌ Error al actualizar empleado');
+    }
+}
+
+// Guardar empleado completo (información + nómina)
+async function guardarEmpleadoCompleto(event) {
+    event.preventDefault();
+    
+    console.log('🧪 DEBUG: Función guardarEmpleadoCompleto llamada');
+    
+    const cedula = document.getElementById('modalEmpleadoCedula').value;
+    const nombre = document.getElementById('modalEmpleadoNombre').value;
+    const sede = document.getElementById('modalEmpleadoSede').value;
+    const fechaInicio = document.getElementById('modalEmpleadoFecha').value;
+    const salario = document.getElementById('modalEmpleadoSalario').value;
+    
+    console.log('🔍 DEBUG: Valores capturados:', {
+        cedula: cedula,
+        nombre: nombre, 
+        sede: sede,
+        fechaInicio: fechaInicio,
+        salario: salario
+    });
+    
+    // Verificar si estamos en modo edición
+    const isEditing = document.getElementById('modalEmpleadoCedula').hasAttribute('data-editing');
+    const originalCedula = document.getElementById('modalEmpleadoCedula').getAttribute('data-editing');
+    
+    console.log('🔍 DEBUG: Modo edición:', isEditing, 'Cédula original:', originalCedula);
+    
+    // Validaciones
+    if (!cedula || !nombre || !sede || !fechaInicio || !salario) {
+        console.log('❌ DEBUG: Validación fallida - campos vacíos');
+        alert('❌ Por favor, complete todos los campos');
+        return;
+    }
+    
+    // Validación de formato de salario (en USD)
+    const salarioNumerico = parseFloat(salario);
+    if (salarioNumerico < 200) {
+        console.log(`⚠️ DEBUG: Salario muy bajo en USD: $${salarioNumerico}. ¿Está seguro?`);
+        if (!confirm(`⚠️ El salario ingresado es $${salarioNumerico} USD, ¿está correcto?\n\nSalarios típicos están entre $300 - $5,000 USD mensuales`)) {
+            return;
+        }
+    }
+    if (salarioNumerico > 10000) {
+        console.log(`⚠️ DEBUG: Salario muy alto en USD: $${salarioNumerico}. ¿Está seguro?`);
+        if (!confirm(`⚠️ El salario ingresado es $${salarioNumerico} USD, ¿está correcto?\n\nEso es bastante alto, ¿está seguro?`)) {
+            return;
+        }
+    }
+    
+    try {
+        const empleadoCompleto = {
+            cedula_empleado: cedula,
+            nombre_empleado: nombre,
+            sede_taller: sede,
+            fecha_inicio: fechaInicio,
+            salario: parseFloat(salario)
+        };
+        
+        console.log('📤 Enviando empleado completo:', empleadoCompleto);
+        
+        let url = '/api/empleados/completo';
+        let method = 'POST';
+        
+        // Si estamos editando, usar PUT y la cédula original
+        if (isEditing) {
+            url = `/api/empleados/completo/${originalCedula}`;
+            method = 'PUT';
+            console.log('🔄 DEBUG: Modo edición - usando PUT en:', url);
+        }
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(empleadoCompleto)
+        });
+        
+        console.log('📥 DEBUG: Status HTTP:', response.status);
+        console.log('📥 DEBUG: Response headers:', response.headers);
+        
+        const result = await response.json();
+        
+        console.log('📥 DEBUG: Respuesta del servidor completa:', result);
+        
+        if (result.success) {
+            console.log('✅ DEBUG: Éxito reportado por servidor');
+            alert('✅ ' + result.message);
+            
+            // Cerrar modal y limpiar formulario
+            cerrarFormularioCompleto();
+            
+            // Esperar un momento antes de recargar para asegurar que la BD se actualizó
+            setTimeout(() => {
+                console.log('🔄 DEBUG: Recargando datos después de actualización...');
+                // Recargar las listas según la pestaña activa
+                if (tabActual === 'sede') {
+                    cargarEmpleadosSede();
+                } else if (tabActual === 'nomina') {
+                    cargarEmpleadosNomina();
+                }
+            }, 500);
+            
+            console.log('✅ Empleado completo procesado exitosamente');
+        } else {
+            console.log('❌ DEBUG: Error reportado por servidor:', result.message);
+            alert('❌ Error: ' + result.message);
+        }
+    } catch (error) {
+        console.error('💥 DEBUG: Error en catch:', error);
+        console.error('💥 DEBUG: Stack trace:', error.stack);
+        alert('❌ Error al crear empleado completo: ' + error.message);
+    }
+}
+</script>
+
+<style>
+.tabs-container {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.tab-btn {
+    padding: 10px 20px;
+    border: 2px solid #3498db;
+    background: white;
+    color: #3498db;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.tab-btn.active,
+.tab-btn:hover {
+    background: #3498db;
+    color: white;
+}
+
+.badge-norte {
+    background: #3498db;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.badge-sur {
+    background: #e74c3c;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+</style>
+</body>
+</html>

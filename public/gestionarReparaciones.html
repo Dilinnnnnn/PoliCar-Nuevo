@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POLI-CAR Nuevo - Gestionar Reparaciones</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="container">
+    <h1>🔨 Gestión de Reparaciones</h1>
+    <p style="text-align: center; color: #7f8c8d; margin-bottom: 20px;">
+        📍 Sede actual: <strong id="sede-actual">Central</strong> | 
+        Datos fragmentados por sede
+    </p>
+    
+    <div class="section-actions">
+        <button class="btn btn-primary" onclick="mostrarFormularioAgregar()">
+            ➕ Nueva Reparación
+        </button>
+        <button class="btn btn-secondary" onclick="cargarReparaciones()">
+            🔄 Actualizar Lista
+        </button>
+        <button class="btn btn-secondary" onclick="location.href='dashboard.html'">
+            ← Volver al Dashboard
+        </button>
+    </div>
+    
+    <!-- Formulario para agregar/editar reparación -->
+    <div id="formularioReparacion" style="display: none; background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <h3 id="tituloFormulario">Nueva Reparación</h3>
+        <form id="reparacionForm">
+            <div class="form-group">
+                <label>Placa del Vehículo:</label>
+                <input type="text" id="reparacionPlaca" required maxlength="8" placeholder="ABC1234" style="text-transform: uppercase;">
+            </div>
+            <div class="form-group">
+                <label>Sede:</label>
+                <select id="reparacionSede" required>
+                    <option value="">Seleccionar sede</option>
+                    <option value="NORTE">🏢 Norte</option>
+                    <option value="SUR">🏢 Sur</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Fecha de Reparación:</label>
+                <input type="date" id="reparacionFecha" required>
+            </div>
+            <div class="form-group">
+                <label>Descripción:</label>
+                <textarea id="reparacionDescripcion" required rows="4" placeholder="Descripción detallada del trabajo realizado..."></textarea>
+            </div>
+            <div class="form-group">
+                <label>Repuestos Utilizados:</label>
+                <div style="border: 1px solid #ddd; border-radius: 4px; padding: 10px; max-height: 200px; overflow-y: auto;">
+                    <div style="margin-bottom: 10px;">
+                        <button type="button" class="btn btn-small btn-primary" onclick="mostrarRepuestosDisponibles()">
+                            ➕ Agregar Repuesto
+                        </button>
+                    </div>
+                    <div id="repuestosSeleccionados">
+                        <p style="color: #7f8c8d; text-align: center; margin: 10px 0;">No se han seleccionado repuestos</p>
+                    </div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Precio Total:</label>
+                <input type="number" id="reparacionPrecio" required min="0" step="0.01" placeholder="45.50">
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-success">💾 Guardar</button>
+                <button type="button" class="btn btn-secondary" onclick="cancelarFormulario()">❌ Cancelar</button>
+            </div>
+        </form>
+    </div>
+    
+    <div class="table-container">
+        <table id="reparacionesTable" class="data-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Placa</th>
+                    <th>Sede</th>
+                    <th>Fecha</th>
+                    <th>Descripción</th>
+                    <th>Precio</th>
+                    <th>Repuestos</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td colspan="8" class="loading">Cargando reparaciones...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal para ver repuestos -->
+<div id="modalRepuestos" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>🔧 Repuestos Utilizados</h3>
+            <span class="close" onclick="cerrarModal()">&times;</span>
+        </div>
+        <div class="modal-body" id="modalRepuestosBody">
+            <!-- Contenido dinámico -->
+        </div>
+    </div>
+</div>
+
+<!-- Modal para seleccionar repuestos disponibles -->
+<div id="modalSeleccionarRepuestos" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>🛒 Seleccionar Repuestos</h3>
+            <span class="close" onclick="cerrarModalSeleccionar()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div style="margin-bottom: 15px;">
+                <label>Filtrar por sede:</label>
+                <select id="filtroSedeRepuestos" onchange="cargarRepuestosDisponibles()">
+                    <option value="">Todas las sedes</option>
+                    <option value="NORTE">🏢 Norte</option>
+                    <option value="SUR">🏢 Sur</option>
+                </select>
+            </div>
+            <div id="listaRepuestosDisponibles" style="max-height: 400px; overflow-y: auto;">
+                <p style="text-align: center; color: #7f8c8d;">Cargando repuestos...</p>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="cerrarModalSeleccionar()">❌ Cerrar</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// Variables globales
+let modoEdicion = false;
+let idOriginal = '';
+let repuestosSeleccionados = [];
+
+// Inicializar página
+document.addEventListener('DOMContentLoaded', function() {
+    const sedeActual = localStorage.getItem('sedeActual') || 'Central';
+    document.getElementById('sede-actual').textContent = sedeActual;
+    
+    cargarReparaciones();
+    
+    // Event listener para el formulario
+    document.getElementById('reparacionForm').addEventListener('submit', guardarReparacion);
+    
+    // Fecha por defecto
+    document.getElementById('reparacionFecha').valueAsDate = new Date();
+});
+
+// Cargar lista de reparaciones (solo de la sede actual)
+async function cargarReparaciones() {
+    try {
+        const tbody = document.querySelector('#reparacionesTable tbody');
+        tbody.innerHTML = '<tr><td colspan="8" class="loading">Cargando reparaciones...</td></tr>';
+        
+        // Obtener la sede actual del localStorage
+        const sedeActual = localStorage.getItem('sedeActual') || 'SUR';
+        
+        // Cargar solo reparaciones de la sede actual
+        const response = await fetch(`/api/reparaciones/sede/${sedeActual}`);
+        const data = await response.json();
+        
+        if (data.success && data.data.length > 0) {
+            tbody.innerHTML = data.data.map(rep => `
+                <tr>
+                    <td>${rep.id_reparacion}</td>
+                    <td class="placa">🚗 ${rep.placa}</td>
+                    <td>
+                        <span class="badge ${rep.sede_taller === 'NORTE' ? 'badge-norte' : 'badge-sur'}">
+                            🏢 ${rep.sede_taller}
+                        </span>
+                    </td>
+                    <td>${formatearFecha(rep.fecha_reparacion)}</td>
+                    <td class="description" title="${rep.descripcion}">
+                        ${rep.descripcion.length > 50 ? 
+                          rep.descripcion.substring(0, 50) + '...' : 
+                          rep.descripcion}
+                    </td>
+                    <td class="price">$${parseFloat(rep.precio_total).toFixed(2)}</td>
+                    <td>
+                        <button class="btn btn-small btn-info" onclick="verRepuestos(${rep.id_reparacion})">
+                            🔧 Ver
+                        </button>
+                    </td>
+                    <td class="actions">
+                        <button class="btn btn-small btn-warning" onclick="editarReparacion(${rep.id_reparacion})">
+                            ✏️ Editar
+                        </button>
+                        <button class="btn btn-small btn-danger" onclick="eliminarReparacion(${rep.id_reparacion})">
+                            🗑️ Eliminar
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        } else {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #7f8c8d;">No hay reparaciones registradas</td></tr>';
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        document.querySelector('#reparacionesTable tbody').innerHTML = 
+            '<tr><td colspan="8" style="text-align: center; color: #e74c3c;">Error cargando reparaciones</td></tr>';
+    }
+}
+
+// Ver repuestos utilizados
+async function verRepuestos(idReparacion) {
+    try {
+        const response = await fetch(`/api/reparaciones/${idReparacion}/repuestos`);
+        const data = await response.json();
+        
+        const modalBody = document.getElementById('modalRepuestosBody');
+        
+        if (data.success && data.data && data.data.length > 0) {
+            modalBody.innerHTML = `
+                <table class="modal-table">
+                    <thead>
+                        <tr>
+                            <th>🔧 Repuesto</th>
+                            <th>📦 Cantidad</th>
+                            <th>💰 Precio Unit.</th>
+                            <th>💵 Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.data.map(item => `
+                            <tr>
+                                <td>${item.nombre_repuesto || 'N/A'}</td>
+                                <td>${item.cantidad_usada}</td>
+                                <td>$${item.precio_unitario ? parseFloat(item.precio_unitario).toFixed(2) : '0.00'} USD</td>
+                                <td>$${item.precio_unitario ? (item.cantidad_usada * parseFloat(item.precio_unitario)).toFixed(2) : '0.00'} USD</td>
+                            </tr>`).join('')}
+                    </tbody>
+                </table>
+                <div style="margin-top: 15px; text-align: center;">
+                    <strong>Total repuestos utilizados: ${data.data.length}</strong>
+                </div>
+            `;
+        } else {
+            modalBody.innerHTML = `
+                <div style="text-align: center; padding: 20px;">
+                    <p style="color: #7f8c8d;">🔧 No se utilizaron repuestos en esta reparación.</p>
+                </div>
+            `;
+        }
+        
+        document.getElementById('modalRepuestos').style.display = 'block';
+    } catch (error) {
+        const modalBody = document.getElementById('modalRepuestosBody');
+        modalBody.innerHTML = `
+            <div style="text-align: center; padding: 20px; color: #e74c3c;">
+                <p>❌ Error al cargar repuestos</p>
+            </div>
+        `;
+        document.getElementById('modalRepuestos').style.display = 'block';
+    }
+}
+
+// Cerrar modal
+function cerrarModal() {
+    document.getElementById('modalRepuestos').style.display = 'none';
+}
+
+// Mostrar formulario para agregar
+function mostrarFormularioAgregar() {
+    modoEdicion = false;
+    document.getElementById('tituloFormulario').textContent = 'Nueva Reparación';
+    document.getElementById('reparacionForm').reset();
+    document.getElementById('reparacionFecha').valueAsDate = new Date();
+    
+    // Preseleccionar la sede actual y deshabilitar el campo
+    const sedeActual = localStorage.getItem('sedeActual') || 'SUR';
+    document.getElementById('reparacionSede').value = sedeActual;
+    document.getElementById('reparacionSede').disabled = true;
+    document.getElementById('reparacionSede').style.backgroundColor = '#f8f9fa';
+    
+    // Limpiar repuestos seleccionados
+    repuestosSeleccionados = [];
+    actualizarListaRepuestosSeleccionados();
+    
+    document.getElementById('formularioReparacion').style.display = 'block';
+}
+
+// Cancelar formulario
+function cancelarFormulario() {
+    document.getElementById('formularioReparacion').style.display = 'none';
+    modoEdicion = false;
+    
+    // Rehabilitar el campo sede
+    document.getElementById('reparacionSede').disabled = false;
+    document.getElementById('reparacionSede').style.backgroundColor = '';
+    
+    // Limpiar repuestos seleccionados
+    repuestosSeleccionados = [];
+    actualizarListaRepuestosSeleccionados();
+}
+
+// Guardar reparación
+async function guardarReparacion(event) {
+    event.preventDefault();
+    
+    const placa = document.getElementById('reparacionPlaca').value.toUpperCase();
+    const sede = document.getElementById('reparacionSede').value;
+    const fecha = document.getElementById('reparacionFecha').value;
+    const descripcion = document.getElementById('reparacionDescripcion').value;
+    const precio = parseFloat(document.getElementById('reparacionPrecio').value);
+    
+    const reparacionData = {
+        placa: placa,
+        sede_taller: sede,
+        fecha_reparacion: fecha,
+        descripcion: descripcion,
+        precio_total: precio,
+        repuestos: repuestosSeleccionados
+    };
+    
+    try {
+        const url = modoEdicion ? `/api/reparaciones/${idOriginal}` : '/api/reparaciones';
+        const method = modoEdicion ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(reparacionData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            const mensaje = modoEdicion ? 
+                '✅ Reparación actualizada correctamente' : 
+                `✅ Reparación agregada correctamente con ${repuestosSeleccionados.length} repuestos`;
+            alert(mensaje);
+            cancelarFormulario();
+            cargarReparaciones();
+        } else {
+            alert('❌ Error: ' + result.message);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('❌ Error al guardar reparación');
+    }
+}
+
+// Editar reparación
+async function editarReparacion(id) {
+    try {
+        console.log('Editando reparación con ID:', id, typeof id);
+        
+        // Obtener la sede actual y cargar solo reparaciones de esa sede
+        const sedeActual = localStorage.getItem('sedeActual') || 'SUR';
+        const response = await fetch(`/api/reparaciones/sede/${sedeActual}`);
+        const data = await response.json();
+        
+        console.log('Datos obtenidos de sede', sedeActual, ':', data.data);
+        
+        // Convertir el ID a string para la comparación (las reparaciones usan string)
+        const idString = id.toString();
+        const reparacion = data.data.find(rep => {
+            console.log('Comparando:', rep.id_reparacion, 'con', idString);
+            return rep.id_reparacion.toString() === idString;
+        });
+        
+        if (reparacion) {
+            modoEdicion = true;
+            idOriginal = id;
+            
+            console.log('Reparación encontrada:', reparacion);
+            
+            document.getElementById('reparacionPlaca').value = reparacion.placa || '';
+            document.getElementById('reparacionSede').value = reparacion.sede_taller || '';
+            document.getElementById('reparacionFecha').value = reparacion.fecha_reparacion ? 
+                reparacion.fecha_reparacion.split('T')[0] : '';
+            document.getElementById('reparacionDescripcion').value = reparacion.descripcion || '';
+            document.getElementById('reparacionPrecio').value = reparacion.precio_total || '';
+            
+            // Deshabilitar el campo sede (no se puede cambiar en fragmentación)
+            document.getElementById('reparacionSede').disabled = true;
+            document.getElementById('reparacionSede').style.backgroundColor = '#f8f9fa';
+            
+            document.getElementById('tituloFormulario').textContent = 'Editar Reparación';
+            document.getElementById('formularioReparacion').style.display = 'block';
+        } else {
+            alert('❌ No se encontró la reparación con ID: ' + id);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('❌ Error al cargar datos de la reparación: ' + error.message);
+    }
+}
+
+// Eliminar reparación
+async function eliminarReparacion(id) {
+    if (!confirm('¿Estás seguro de que deseas eliminar esta reparación?')) return;
+    
+    try {
+        const response = await fetch(`/api/reparaciones/${id}`, {
+            method: 'DELETE'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('✅ Reparación eliminada correctamente');
+            cargarReparaciones();
+        } else {
+            alert('❌ Error: ' + result.message);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('❌ Error al eliminar reparación');
+    }
+}
+
+// Funciones de utilidad
+function formatearFecha(fecha) {
+    if (!fecha) return 'N/A';
+    return new Date(fecha).toLocaleDateString('es-ES');
+}
+
+// ===== FUNCIONES PARA SELECCIONAR REPUESTOS =====
+
+// Mostrar modal para seleccionar repuestos disponibles
+async function mostrarRepuestosDisponibles() {
+    document.getElementById('modalSeleccionarRepuestos').style.display = 'block';
+    await cargarRepuestosDisponibles();
+}
+
+// Cargar lista de repuestos disponibles
+async function cargarRepuestosDisponibles() {
+    try {
+        const filtroSede = document.getElementById('filtroSedeRepuestos').value;
+        const lista = document.getElementById('listaRepuestosDisponibles');
+        
+        lista.innerHTML = '<p style="text-align: center; color: #7f8c8d;">Cargando repuestos...</p>';
+        
+        const response = await fetch('/api/repuestos');
+        const data = await response.json();
+        
+        if (data.success && data.data && data.data.length > 0) {
+            let repuestos = data.data;
+            
+            // Filtrar por sede si se seleccionó
+            if (filtroSede) {
+                repuestos = repuestos.filter(rep => rep.sede_taller === filtroSede);
+            }
+            
+            // Filtrar solo repuestos con stock disponible
+            repuestos = repuestos.filter(rep => rep.cantidad_repuesto > 0);
+            
+            if (repuestos.length > 0) {
+                lista.innerHTML = repuestos.map(rep => `
+                    <div class="repuesto-item" style="border: 1px solid #ddd; border-radius: 4px; padding: 15px; margin-bottom: 10px; background: white;">
+                        <div style="display: flex; justify-content: between; align-items: center;">
+                            <div style="flex: 1;">
+                                <h4 style="margin: 0 0 5px 0; color: #2c3e50;">${rep.nombre_repuesto}</h4>
+                                <p style="margin: 0 0 5px 0; color: #7f8c8d; font-size: 14px;">${rep.descripcion_repuesto}</p>
+                                <div style="display: flex; gap: 15px;">
+                                    <span class="badge ${rep.sede_taller === 'NORTE' ? 'badge-norte' : 'badge-sur'}">
+                                        🏢 ${rep.sede_taller}
+                                    </span>
+                                    <span style="color: #27ae60; font-weight: bold;">📦 Stock: ${rep.cantidad_repuesto}</span>
+                                    <span style="color: #e74c3c; font-weight: bold;">💰 $${parseFloat(rep.precio_unitario || 0).toFixed(2)}</span>
+                                </div>
+                            </div>
+                            <div style="margin-left: 15px;">
+                                <input type="number" id="cant_${rep.id_repuesto}" min="1" max="${rep.cantidad_repuesto}" 
+                                       value="1" style="width: 60px; margin-right: 10px;">
+                                <button class="btn btn-small btn-success" 
+                                        onclick="agregarRepuesto(${rep.id_repuesto}, '${rep.nombre_repuesto}', '${rep.sede_taller}', ${rep.precio_unitario}, ${rep.cantidad_repuesto})">
+                                    ➕ Agregar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                lista.innerHTML = '<p style="text-align: center; color: #7f8c8d;">No hay repuestos disponibles con stock</p>';
+            }
+        } else {
+            lista.innerHTML = '<p style="text-align: center; color: #e74c3c;">Error cargando repuestos</p>';
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        document.getElementById('listaRepuestosDisponibles').innerHTML = 
+            '<p style="text-align: center; color: #e74c3c;">Error cargando repuestos</p>';
+    }
+}
+
+// Agregar repuesto a la selección
+function agregarRepuesto(id, nombre, sede, precio, stockMax) {
+    const cantidadInput = document.getElementById(`cant_${id}`);
+    const cantidad = parseInt(cantidadInput.value);
+    
+    if (cantidad <= 0 || cantidad > stockMax) {
+        alert(`❌ La cantidad debe estar entre 1 y ${stockMax}`);
+        return;
+    }
+    
+    // Verificar si ya existe el repuesto
+    const existeIndex = repuestosSeleccionados.findIndex(rep => rep.id_repuesto === id);
+    
+    if (existeIndex >= 0) {
+        // Actualizar cantidad existente
+        repuestosSeleccionados[existeIndex].cantidad += cantidad;
+        if (repuestosSeleccionados[existeIndex].cantidad > stockMax) {
+            repuestosSeleccionados[existeIndex].cantidad = stockMax;
+        }
+    } else {
+        // Agregar nuevo repuesto
+        repuestosSeleccionados.push({
+            id_repuesto: id,
+            nombre_repuesto: nombre,
+            sede_taller: sede,
+            precio_unitario: precio,
+            cantidad: cantidad,
+            stock_maximo: stockMax
+        });
+    }
+    
+    actualizarListaRepuestosSeleccionados();
+    cantidadInput.value = 1; // Reset del input
+}
+
+// Actualizar la visualización de repuestos seleccionados
+function actualizarListaRepuestosSeleccionados() {
+    const container = document.getElementById('repuestosSeleccionados');
+    
+    if (repuestosSeleccionados.length === 0) {
+        container.innerHTML = '<p style="color: #7f8c8d; text-align: center; margin: 10px 0;">No se han seleccionado repuestos</p>';
+        return;
+    }
+    
+    container.innerHTML = repuestosSeleccionados.map(rep => `
+        <div class="repuesto-seleccionado" style="display: flex; justify-content: between; align-items: center; padding: 8px; border: 1px solid #27ae60; border-radius: 4px; margin-bottom: 5px; background: #f8fff8;">
+            <div style="flex: 1;">
+                <strong>${rep.nombre_repuesto}</strong>
+                <span class="badge ${rep.sede_taller === 'NORTE' ? 'badge-norte' : 'badge-sur'}" style="margin-left: 5px;">
+                    ${rep.sede_taller}
+                </span>
+                <br>
+                <small>Cantidad: ${rep.cantidad} | Precio: $${parseFloat(rep.precio_unitario).toFixed(2)}</small>
+            </div>
+            <button class="btn btn-small btn-danger" onclick="quitarRepuesto(${rep.id_repuesto})" title="Quitar repuesto">
+                ❌
+            </button>
+        </div>
+    `).join('');
+}
+
+// Quitar repuesto de la selección
+function quitarRepuesto(id) {
+    repuestosSeleccionados = repuestosSeleccionados.filter(rep => rep.id_repuesto !== id);
+    actualizarListaRepuestosSeleccionados();
+}
+
+// Cerrar modal de selección de repuestos
+function cerrarModalSeleccionar() {
+    document.getElementById('modalSeleccionarRepuestos').style.display = 'none';
+}
+
+// Cerrar modal al hacer clic fuera
+window.onclick = function(event) {
+    const modal = document.getElementById('modalRepuestos');
+    const modalSeleccionar = document.getElementById('modalSeleccionarRepuestos');
+    if (event.target === modal) {
+        modal.style.display = 'none';
+    }
+    if (event.target === modalSeleccionar) {
+        modalSeleccionar.style.display = 'none';
+    }
+}
+</script>
+
+<style>
+.badge-norte {
+    background: #3498db;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.badge-sur {
+    background: #e74c3c;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.description {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.placa {
+    font-family: monospace;
+    font-weight: bold;
+}
+
+.price {
+    font-weight: bold;
+    color: #27ae60;
+}
+
+.btn-info {
+    background-color: #17a2b8;
+    color: white;
+}
+
+.btn-info:hover {
+    background-color: #138496;
+}
+
+/* Modal */
+.modal {
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 5% auto;
+    padding: 0;
+    border-radius: 8px;
+    width: 80%;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    padding: 20px;
+    border-bottom: 1px solid #ddd;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.modal-footer {
+    padding: 15px 20px;
+    border-top: 1px solid #ddd;
+    text-align: right;
+}
+
+.modal-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.modal-table th,
+.modal-table td {
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+.modal-table th {
+    background-color: #f8f9fa;
+    font-weight: bold;
+}
+
+.close {
+    color: #aaa;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close:hover {
+    color: #000;
+}
+</style>
+</body>
+</html>

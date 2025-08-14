@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POLI-CAR Nuevo - Gestionar Repuestos</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="container">
+    <h1>🔧 Gestión de Repuestos</h1>
+    <p style="text-align: center; color: #7f8c8d; margin-bottom: 20px;">
+        📍 Sede actual: <strong id="sede-actual">Central</strong> | 
+        Datos fragmentados por sede
+    </p>
+    
+    <div class="section-actions">
+        <button class="btn btn-primary" onclick="mostrarFormularioAgregar()">
+            ➕ Nuevo Repuesto
+        </button>
+        <button class="btn btn-secondary" onclick="cargarRepuestos()">
+            🔄 Actualizar Lista
+        </button>
+        <button class="btn btn-secondary" onclick="location.href='dashboard.html'">
+            ← Volver al Dashboard
+        </button>
+    </div>
+    
+    <!-- Formulario para agregar/editar repuesto -->
+    <div id="formularioRepuesto" style="display: none; background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <h3 id="tituloFormulario">Nuevo Repuesto</h3>
+        <form id="repuestoForm">
+            <div class="form-group">
+                <label>Nombre del Repuesto:</label>
+                <input type="text" id="repuestoNombre" required placeholder="Filtro de Aceite">
+            </div>
+            <div class="form-group">
+                <label>Descripción:</label>
+                <textarea id="repuestoDescripcion" required rows="3" placeholder="Descripción detallada del repuesto..."></textarea>
+            </div>
+            <div class="form-group">
+                <label>Sede:</label>
+                <select id="repuestoSede" required>
+                    <option value="">Seleccionar sede</option>
+                    <option value="NORTE">🏢 Norte</option>
+                    <option value="SUR">🏢 Sur</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Cantidad en Stock:</label>
+                <input type="number" id="repuestoCantidad" required min="0" placeholder="25">
+            </div>
+            <div class="form-group">
+                <label>Precio Unitario:</label>
+                <input type="number" id="repuestoPrecio" required min="0" step="0.01" placeholder="15.50">
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-success">💾 Guardar</button>
+                <button type="button" class="btn btn-secondary" onclick="cancelarFormulario()">❌ Cancelar</button>
+            </div>
+        </form>
+    </div>
+    
+    <div class="table-container">
+        <table id="repuestosTable" class="data-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nombre</th>
+                    <th>Descripción</th>
+                    <th>Sede</th>
+                    <th>Stock</th>
+                    <th>Precio</th>
+                    <th>Valor Total</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td colspan="8" class="loading">Cargando repuestos...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+// Variables globales
+let modoEdicion = false;
+let idOriginal = '';
+
+// Inicializar página
+document.addEventListener('DOMContentLoaded', function() {
+    const sedeActual = localStorage.getItem('sedeActual') || 'Central';
+    document.getElementById('sede-actual').textContent = sedeActual;
+    
+    cargarRepuestos();
+    
+    // Event listener para el formulario
+    document.getElementById('repuestoForm').addEventListener('submit', guardarRepuesto);
+});
+
+// Cargar lista de repuestos (solo de la sede actual)
+async function cargarRepuestos() {
+    try {
+        const tbody = document.querySelector('#repuestosTable tbody');
+        tbody.innerHTML = '<tr><td colspan="8" class="loading">Cargando repuestos...</td></tr>';
+        
+        // Obtener la sede actual del localStorage
+        const sedeActual = localStorage.getItem('sedeActual') || 'SUR';
+        
+        // Cargar solo repuestos de la sede actual
+        const response = await fetch(`/api/repuestos/sede/${sedeActual}`);
+        const data = await response.json();
+        
+        if (data.success && data.data.length > 0) {
+            tbody.innerHTML = data.data.map(rep => {
+                const valorTotal = (rep.cantidad_repuesto * rep.precio_unitario).toFixed(2);
+                const stockClass = getStockClass(rep.cantidad_repuesto);
+                
+                return `
+                    <tr>
+                        <td>${rep.id_repuesto}</td>
+                        <td>${rep.nombre_repuesto}</td>
+                        <td class="description" title="${rep.descripcion_repuesto}">
+                            ${rep.descripcion_repuesto.length > 50 ? 
+                              rep.descripcion_repuesto.substring(0, 50) + '...' : 
+                              rep.descripcion_repuesto}
+                        </td>
+                        <td>
+                            <span class="badge ${rep.sede_taller === 'NORTE' ? 'badge-norte' : 'badge-sur'}">
+                                🏢 ${rep.sede_taller}
+                            </span>
+                        </td>
+                        <td class="stock ${stockClass}">
+                            📦 ${rep.cantidad_repuesto}
+                        </td>
+                        <td>$${parseFloat(rep.precio_unitario).toFixed(2)}</td>
+                        <td class="value">$${valorTotal}</td>
+                        <td class="actions">
+                            <button class="btn btn-small btn-warning" onclick="editarRepuesto(${rep.id_repuesto})">
+                                ✏️ Editar
+                            </button>
+                            <button class="btn btn-small btn-danger" onclick="eliminarRepuesto(${rep.id_repuesto})">
+                                🗑️ Eliminar
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        } else {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #7f8c8d;">No hay repuestos registrados</td></tr>';
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        document.querySelector('#repuestosTable tbody').innerHTML = 
+            '<tr><td colspan="8" style="text-align: center; color: #e74c3c;">Error cargando repuestos</td></tr>';
+    }
+}
+
+// Obtener clase CSS según el stock
+function getStockClass(cantidad) {
+    if (cantidad <= 10) return 'stock-bajo';
+    if (cantidad <= 50) return 'stock-medio';
+    return 'stock-alto';
+}
+
+// Mostrar formulario para agregar
+function mostrarFormularioAgregar() {
+    modoEdicion = false;
+    document.getElementById('tituloFormulario').textContent = 'Nuevo Repuesto';
+    document.getElementById('repuestoForm').reset();
+    
+    // Preseleccionar la sede actual y deshabilitar el campo
+    const sedeActual = localStorage.getItem('sedeActual') || 'SUR';
+    document.getElementById('repuestoSede').value = sedeActual;
+    document.getElementById('repuestoSede').disabled = true;
+    document.getElementById('repuestoSede').style.backgroundColor = '#f8f9fa';
+    
+    document.getElementById('formularioRepuesto').style.display = 'block';
+}
+
+// Cancelar formulario
+function cancelarFormulario() {
+    document.getElementById('formularioRepuesto').style.display = 'none';
+    modoEdicion = false;
+    
+    // Rehabilitar el campo sede
+    document.getElementById('repuestoSede').disabled = false;
+    document.getElementById('repuestoSede').style.backgroundColor = '';
+}
+
+// Guardar repuesto
+async function guardarRepuesto(event) {
+    event.preventDefault();
+    
+    const nombre = document.getElementById('repuestoNombre').value;
+    const descripcion = document.getElementById('repuestoDescripcion').value;
+    // Si el campo está deshabilitado, usar la sede actual
+    const sedeField = document.getElementById('repuestoSede');
+    const sede = sedeField.disabled ? (localStorage.getItem('sedeActual') || 'SUR') : sedeField.value;
+    const cantidad = parseInt(document.getElementById('repuestoCantidad').value);
+    const precio = parseFloat(document.getElementById('repuestoPrecio').value);
+    
+    const repuestoData = {
+        nombre_repuesto: nombre,
+        descripcion_repuesto: descripcion,
+        sede_taller: sede,
+        cantidad_repuesto: cantidad,
+        precio_unitario: precio
+    };
+    
+    try {
+        const url = modoEdicion ? `/api/repuestos/${idOriginal}` : '/api/repuestos';
+        const method = modoEdicion ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(repuestoData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(modoEdicion ? '✅ Repuesto actualizado correctamente' : '✅ Repuesto agregado correctamente');
+            cancelarFormulario();
+            cargarRepuestos();
+        } else {
+            alert('❌ Error: ' + result.message);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('❌ Error al guardar repuesto');
+    }
+}
+
+// Editar repuesto
+async function editarRepuesto(id) {
+    try {
+        console.log('Editando repuesto con ID:', id, typeof id);
+        
+        // Obtener la sede actual y cargar solo repuestos de esa sede
+        const sedeActual = localStorage.getItem('sedeActual') || 'SUR';
+        const response = await fetch(`/api/repuestos/sede/${sedeActual}`);
+        const data = await response.json();
+        
+        console.log('Datos obtenidos de sede', sedeActual, ':', data.data);
+        
+        // Convertir el ID a número para la comparación
+        const idNumber = parseInt(id);
+        const repuesto = data.data.find(rep => {
+            console.log('Comparando:', rep.id_repuesto, 'con', idNumber);
+            return parseInt(rep.id_repuesto) === idNumber;
+        });
+        
+        if (repuesto) {
+            modoEdicion = true;
+            idOriginal = id;
+            
+            console.log('Repuesto encontrado:', repuesto);
+            
+            document.getElementById('repuestoNombre').value = repuesto.nombre_repuesto || '';
+            document.getElementById('repuestoDescripcion').value = repuesto.descripcion_repuesto || '';
+            document.getElementById('repuestoSede').value = repuesto.sede_taller || '';
+            document.getElementById('repuestoCantidad').value = repuesto.cantidad_repuesto || '';
+            document.getElementById('repuestoPrecio').value = repuesto.precio_unitario || '';
+            
+            // Deshabilitar el campo sede (no se puede cambiar en fragmentación)
+            document.getElementById('repuestoSede').disabled = true;
+            document.getElementById('repuestoSede').style.backgroundColor = '#f8f9fa';
+            
+            document.getElementById('tituloFormulario').textContent = 'Editar Repuesto';
+            document.getElementById('formularioRepuesto').style.display = 'block';
+        } else {
+            alert('❌ No se encontró el repuesto con ID: ' + id);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('❌ Error al cargar datos del repuesto');
+    }
+}
+
+// Eliminar repuesto
+async function eliminarRepuesto(id) {
+    if (!confirm('¿Estás seguro de que deseas eliminar este repuesto?')) return;
+    
+    try {
+        // Primero obtenemos los datos del repuesto para conocer su sede
+        const response = await fetch('/api/repuestos');
+        const data = await response.json();
+        
+        const repuesto = data.data.find(rep => rep.id_repuesto === id);
+        if (!repuesto) {
+            alert('❌ No se pudo encontrar el repuesto');
+            return;
+        }
+        
+        const deleteResponse = await fetch(`/api/repuestos/${id}/${repuesto.sede_taller}`, {
+            method: 'DELETE'
+        });
+        
+        const result = await deleteResponse.json();
+        
+        if (result.success) {
+            alert('✅ Repuesto eliminado correctamente');
+            cargarRepuestos();
+        } else {
+            alert('❌ Error: ' + result.message);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('❌ Error al eliminar repuesto');
+    }
+}
+</script>
+
+<style>
+.badge-norte {
+    background: #3498db;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.badge-sur {
+    background: #e74c3c;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.description {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.stock-bajo { 
+    color: #e74c3c; 
+    font-weight: bold; 
+}
+
+.stock-medio { 
+    color: #f39c12; 
+    font-weight: bold; 
+}
+
+.stock-alto { 
+    color: #27ae60; 
+    font-weight: bold; 
+}
+
+.value {
+    font-weight: bold;
+    color: #27ae60;
+}
+</style>
+</body>
+</html>

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POLI-CAR - Dashboard</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="container">
+    <h1>🚗 POLI-CAR Sistema Distribuido</h1>
+    
+    <!-- Información del Taller Actual -->
+    <div id="taller-info" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; border-radius: 10px; margin: 20px 0; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+        🏢 Información del taller
+    </div>
+    
+    <h2>📋 Menú Principal</h2>
+    <nav class="dashboard-nav">
+        <!-- Gestión de Datos Replicados -->
+        <a href="gestionarClientes.html" style="background-color: #e74c3c;">
+            👤 Gestionar Clientes<br>
+            <small>Datos replicados en ambas sedes</small>
+        </a>
+        <a href="gestionarVehiculos.html" style="background-color: #3498db;">
+            🚗 Gestionar Vehículos<br>
+            <small>Datos replicados en ambas sedes</small>
+        </a>
+        
+        <!-- Gestión de Datos Fragmentados por Sede -->
+        <a href="gestionarEmpleados.html" style="background-color: #f39c12;">
+            👨‍💼 Gestionar Empleados<br>
+            <small>Datos fragmentados por sede</small>
+        </a>
+        <a href="gestionarRepuestos.html" style="background-color: #27ae60;">
+            ⚙️ Gestionar Repuestos<br>
+            <small>Inventario por sede específica</small>
+        </a>
+        <a href="gestionarReparaciones.html" style="background-color: #8e44ad;">
+            🔧 Gestionar Reparaciones<br>
+            <small>Servicios por sede específica</small>
+        </a>
+        
+    </nav>
+
+    <div class="nav-links">
+        <a href="index.html">← Cambiar de Sede</a>
+    </div>
+</div>
+
+<script src="js/main.js"></script>
+</body>
+</html>

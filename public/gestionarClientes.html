@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POLI-CAR Nuevo - Gestionar Clientes</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="container">
+    <h1>👤 Gestión de Clientes</h1>
+    <p style="text-align: center; color: #7f8c8d; margin-bottom: 20px;">
+        📍 Sede actual: <strong id="sede-actual">Central</strong> | 
+        Datos replicados en todas las sedes
+    </p>
+    
+    <div class="section-actions">
+        <button class="btn btn-primary" onclick="mostrarFormularioAgregar()">
+            ➕ Nuevo Cliente
+        </button>
+        <button class="btn btn-secondary" onclick="cargarClientes()">
+            🔄 Actualizar Lista
+        </button>
+        <button class="btn btn-secondary" onclick="location.href='dashboard.html'">
+            ← Volver al Dashboard
+        </button>
+    </div>
+    
+    <!-- Formulario para agregar/editar cliente -->
+    <div id="formularioCliente" style="display: none; background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <h3 id="tituloFormulario">Nuevo Cliente</h3>
+        <form id="clienteForm">
+            <div class="form-group">
+                <label>Cédula:</label>
+                <input type="text" id="clienteCedula" required maxlength="10" placeholder="1234567890">
+            </div>
+            <div class="form-group">
+                <label>Nombre:</label>
+                <input type="text" id="clienteNombre" required placeholder="Juan Carlos">
+            </div>
+            <div class="form-group">
+                <label>Apellido:</label>
+                <input type="text" id="clienteApellido" required placeholder="Pérez García">
+            </div>
+            <div class="form-group">
+                <label>Zona:</label>
+                <input type="text" id="clienteZona" required placeholder="Norte, Sur, Centro, etc.">
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-success">💾 Guardar</button>
+                <button type="button" class="btn btn-secondary" onclick="cancelarFormulario()">❌ Cancelar</button>
+            </div>
+        </form>
+    </div>
+    
+    <div class="table-container">
+        <table id="clientesTable" class="data-table">
+            <thead>
+                <tr>
+                    <th>Cédula</th>
+                    <th>Nombre</th>
+                    <th>Apellido</th>
+                    <th>Zona</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td colspan="5" class="loading">Cargando clientes...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+// Variables globales
+let modoEdicion = false;
+let cedulaOriginal = '';
+
+// Inicializar página
+document.addEventListener('DOMContentLoaded', function() {
+    const sedeActual = localStorage.getItem('sedeSeleccionada') || 'Central';
+    document.getElementById('sede-actual').textContent = sedeActual;
+    
+    cargarClientes();
+    
+    // Event listener para el formulario
+    document.getElementById('clienteForm').addEventListener('submit', guardarCliente);
+});
+
+// Cargar lista de clientes
+async function cargarClientes() {
+    try {
+        const tbody = document.querySelector('#clientesTable tbody');
+        tbody.innerHTML = '<tr><td colspan="5" class="loading">Cargando clientes...</td></tr>';
+        
+        const response = await fetch('/api/clientes');
+        const data = await response.json();
+        
+        if (data.success) {
+            mostrarClientesTabla(data.data);
+        } else {
+            tbody.innerHTML = `<tr><td colspan="5" class="error-message">Error: ${data.message}</td></tr>`;
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        const tbody = document.querySelector('#clientesTable tbody');
+        tbody.innerHTML = '<tr><td colspan="5" class="error-message">Error de conexión</td></tr>';
+    }
+}
+
+// Mostrar clientes en la tabla
+function mostrarClientesTabla(clientes) {
+    const tbody = document.querySelector('#clientesTable tbody');
+    tbody.innerHTML = '';
+    
+    if (clientes.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #7f8c8d;">No hay clientes registrados</td></tr>';
+        return;
+    }
+    
+    clientes.forEach(cliente => {
+        const row = tbody.insertRow();
+        row.innerHTML = `
+            <td>${cliente.cedula_cliente}</td>
+            <td>${cliente.nombre_cliente}</td>
+            <td>${cliente.apellido_cliente}</td>
+            <td>${cliente.zona}</td>
+            <td>
+                <button class="btn btn-primary" onclick="editarCliente('${cliente.cedula_cliente}', '${cliente.nombre_cliente}', '${cliente.apellido_cliente}', '${cliente.zona}')">✏️ Editar</button>
+                <button class="btn btn-danger" onclick="eliminarCliente('${cliente.cedula_cliente}')">🗑️ Eliminar</button>
+            </td>
+        `;
+    });
+}
+
+// Mostrar formulario para agregar
+function mostrarFormularioAgregar() {
+    modoEdicion = false;
+    cedulaOriginal = '';
+    document.getElementById('tituloFormulario').textContent = 'Nuevo Cliente';
+    document.getElementById('formularioCliente').style.display = 'block';
+    
+    // Limpiar formulario
+    document.getElementById('clienteCedula').value = '';
+    document.getElementById('clienteNombre').value = '';
+    document.getElementById('clienteApellido').value = '';
+    document.getElementById('clienteZona').value = '';
+    document.getElementById('clienteCedula').disabled = false;
+}
+
+// Editar cliente
+function editarCliente(cedula, nombre, apellido, zona) {
+    modoEdicion = true;
+    cedulaOriginal = cedula;
+    document.getElementById('tituloFormulario').textContent = 'Editar Cliente';
+    document.getElementById('formularioCliente').style.display = 'block';
+    
+    // Llenar formulario
+    document.getElementById('clienteCedula').value = cedula;
+    document.getElementById('clienteNombre').value = nombre;
+    document.getElementById('clienteApellido').value = apellido;
+    document.getElementById('clienteZona').value = zona;
+    document.getElementById('clienteCedula').disabled = true; // No permitir editar cédula
+}
+
+// Guardar cliente (crear o actualizar)
+async function guardarCliente(event) {
+    event.preventDefault();
+    
+    const clienteData = {
+        cedula_cliente: document.getElementById('clienteCedula').value,
+        nombre_cliente: document.getElementById('clienteNombre').value,
+        apellido_cliente: document.getElementById('clienteApellido').value,
+        zona: document.getElementById('clienteZona').value
+    };
+    
+    try {
+        let response;
+        if (modoEdicion) {
+            // Actualizar cliente existente
+            response = await fetch(`/api/clientes/${cedulaOriginal}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(clienteData)
+            });
+        } else {
+            // Crear nuevo cliente
+            response = await fetch('/api/clientes', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(clienteData)
+            });
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            mostrarExito(modoEdicion ? 'Cliente actualizado exitosamente' : 'Cliente creado exitosamente');
+            cancelarFormulario();
+            cargarClientes();
+        } else {
+            mostrarError('Error: ' + data.message);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        mostrarError('Error de conexión al guardar cliente');
+    }
+}
+
+// Eliminar cliente
+async function eliminarCliente(cedula) {
+    if (!confirm(`¿Está seguro de eliminar el cliente con cédula ${cedula}?`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/clientes/${cedula}`, {
+            method: 'DELETE'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            mostrarExito('Cliente eliminado exitosamente');
+            cargarClientes();
+        } else {
+            mostrarError('Error: ' + data.message);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        mostrarError('Error de conexión al eliminar cliente');
+    }
+}
+
+// Cancelar formulario
+function cancelarFormulario() {
+    document.getElementById('formularioCliente').style.display = 'none';
+    document.getElementById('clienteForm').reset();
+}
+
+// Funciones de utilidad
+function mostrarError(mensaje) {
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'error-message';
+    errorDiv.textContent = mensaje;
+    
+    const container = document.querySelector('.container');
+    container.insertBefore(errorDiv, container.firstChild);
+    
+    setTimeout(() => {
+        errorDiv.remove();
+    }, 5000);
+}
+
+function mostrarExito(mensaje) {
+    const successDiv = document.createElement('div');
+    successDiv.className = 'success-message';
+    successDiv.textContent = mensaje;
+    
+    const container = document.querySelector('.container');
+    container.insertBefore(successDiv, container.firstChild);
+    
+    setTimeout(() => {
+        successDiv.remove();
+    }, 3000);
+}
+</script>
+</body>
+</html>

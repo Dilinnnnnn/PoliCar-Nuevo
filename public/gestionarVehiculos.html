@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POLI-CAR Nuevo - Gestionar Vehículos</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="container">
+    <h1>🚗 Gestión de Vehículos</h1>
+    <p style="text-align: center; color: #7f8c8d; margin-bottom: 20px;">
+        📍 Sede actual: <strong id="sede-actual">Central</strong> | 
+        Datos replicados en todas las sedes
+    </p>
+    
+    <div class="section-actions">
+        <button class="btn btn-primary" onclick="mostrarFormularioAgregar()">
+            ➕ Nuevo Vehículo
+        </button>
+        <button class="btn btn-secondary" onclick="cargarVehiculos()">
+            🔄 Actualizar Lista
+        </button>
+        <button class="btn btn-secondary" onclick="location.href='dashboard.html'">
+            ← Volver al Dashboard
+        </button>
+    </div>
+    
+    <!-- Formulario para agregar/editar vehículo -->
+    <div id="formularioVehiculo" style="display: none; background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <h3 id="tituloFormulario">Nuevo Vehículo</h3>
+        <form id="vehiculoForm">
+            <div class="form-group">
+                <label>Placa:</label>
+                <input type="text" id="vehiculoPlaca" required maxlength="10" placeholder="ABC1234" style="text-transform: uppercase;">
+            </div>
+            <div class="form-group">
+                <label>Cédula del Cliente:</label>
+                <input type="text" id="vehiculoCedula" required maxlength="10" placeholder="1234567890">
+            </div>
+            <div class="form-group">
+                <label>Marca:</label>
+                <input type="text" id="vehiculoMarca" required placeholder="Toyota, Chevrolet, Nissan, etc.">
+            </div>
+            <div class="form-group">
+                <label>Modelo:</label>
+                <input type="text" id="vehiculoModelo" required placeholder="Corolla, Sail, Sentra, etc.">
+            </div>
+            <div class="form-group">
+                <label>Año:</label>
+                <input type="number" id="vehiculoAño" required min="1950" max="2025" placeholder="2020">
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-success">💾 Guardar</button>
+                <button type="button" class="btn btn-secondary" onclick="cancelarFormulario()">❌ Cancelar</button>
+            </div>
+        </form>
+    </div>
+    
+    <div class="table-container">
+        <table id="vehiculosTable" class="data-table">
+            <thead>
+                <tr>
+                    <th>Placa</th>
+                    <th>Cliente</th>
+                    <th>Marca</th>
+                    <th>Modelo</th>
+                    <th>Año</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td colspan="6" class="loading">Cargando vehículos...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+// Variables globales
+let modoEdicion = false;
+let placaOriginal = '';
+
+// Inicializar página
+document.addEventListener('DOMContentLoaded', function() {
+    const sedeActual = localStorage.getItem('sedeSeleccionada') || 'Central';
+    document.getElementById('sede-actual').textContent = sedeActual;
+    
+    cargarVehiculos();
+    
+    // Event listener para el formulario
+    document.getElementById('vehiculoForm').addEventListener('submit', guardarVehiculo);
+    
+    // Convertir placa a mayúsculas mientras se escribe
+    document.getElementById('vehiculoPlaca').addEventListener('input', function() {
+        this.value = this.value.toUpperCase();
+    });
+});
+
+// Cargar lista de vehículos
+async function cargarVehiculos() {
+    try {
+        const tbody = document.querySelector('#vehiculosTable tbody');
+        tbody.innerHTML = '<tr><td colspan="6" class="loading">Cargando vehículos...</td></tr>';
+        
+        const response = await fetch('/api/vehiculos');
+        const data = await response.json();
+        
+        if (data.success) {
+            mostrarVehiculosTabla(data.data);
+        } else {
+            tbody.innerHTML = `<tr><td colspan="6" class="error-message">Error: ${data.message}</td></tr>`;
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        const tbody = document.querySelector('#vehiculosTable tbody');
+        tbody.innerHTML = '<tr><td colspan="6" class="error-message">Error de conexión</td></tr>';
+    }
+}
+
+// Mostrar vehículos en la tabla
+function mostrarVehiculosTabla(vehiculos) {
+    const tbody = document.querySelector('#vehiculosTable tbody');
+    tbody.innerHTML = '';
+    
+    if (vehiculos.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #7f8c8d;">No hay vehículos registrados</td></tr>';
+        return;
+    }
+    
+    vehiculos.forEach(vehiculo => {
+        const row = tbody.insertRow();
+        row.innerHTML = `
+            <td>${vehiculo.placa}</td>
+            <td>${vehiculo.nombre_cliente} ${vehiculo.apellido_cliente}</td>
+            <td>${vehiculo.marca}</td>
+            <td>${vehiculo.modelo}</td>
+            <td>${vehiculo.año}</td>
+            <td>
+                <button class="btn btn-primary" onclick="editarVehiculo('${vehiculo.placa}', '${vehiculo.cedula_cliente}', '${vehiculo.marca}', '${vehiculo.modelo}', '${vehiculo.año}')">✏️ Editar</button>
+                <button class="btn btn-danger" onclick="eliminarVehiculo('${vehiculo.placa}')">🗑️ Eliminar</button>
+            </td>
+        `;
+    });
+}
+
+// Mostrar formulario para agregar
+function mostrarFormularioAgregar() {
+    modoEdicion = false;
+    placaOriginal = '';
+    document.getElementById('tituloFormulario').textContent = 'Nuevo Vehículo';
+    document.getElementById('formularioVehiculo').style.display = 'block';
+    
+    // Limpiar formulario
+    document.getElementById('vehiculoPlaca').value = '';
+    document.getElementById('vehiculoCedula').value = '';
+    document.getElementById('vehiculoMarca').value = '';
+    document.getElementById('vehiculoModelo').value = '';
+    document.getElementById('vehiculoAño').value = '';
+    document.getElementById('vehiculoPlaca').disabled = false;
+}
+
+// Editar vehículo
+function editarVehiculo(placa, cedula, marca, modelo, año) {
+    modoEdicion = true;
+    placaOriginal = placa;
+    document.getElementById('tituloFormulario').textContent = 'Editar Vehículo';
+    document.getElementById('formularioVehiculo').style.display = 'block';
+    
+    // Llenar formulario
+    document.getElementById('vehiculoPlaca').value = placa;
+    document.getElementById('vehiculoCedula').value = cedula;
+    document.getElementById('vehiculoMarca').value = marca;
+    document.getElementById('vehiculoModelo').value = modelo;
+    document.getElementById('vehiculoAño').value = año;
+    document.getElementById('vehiculoPlaca').disabled = true; // No permitir editar placa
+}
+
+// Guardar vehículo (crear o actualizar)
+async function guardarVehiculo(event) {
+    event.preventDefault();
+    
+    const vehiculoData = {
+        placa: document.getElementById('vehiculoPlaca').value.toUpperCase(),
+        cedula_cliente: document.getElementById('vehiculoCedula').value,
+        marca: document.getElementById('vehiculoMarca').value,
+        modelo: document.getElementById('vehiculoModelo').value,
+        año: parseInt(document.getElementById('vehiculoAño').value)
+    };
+    
+    try {
+        let response;
+        if (modoEdicion) {
+            // Actualizar vehículo existente
+            response = await fetch(`/api/vehiculos/${placaOriginal}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(vehiculoData)
+            });
+        } else {
+            // Crear nuevo vehículo
+            response = await fetch('/api/vehiculos', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(vehiculoData)
+            });
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            mostrarExito(modoEdicion ? 'Vehículo actualizado exitosamente' : 'Vehículo creado exitosamente');
+            cancelarFormulario();
+            cargarVehiculos();
+        } else {
+            mostrarError('Error: ' + data.message);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        mostrarError('Error de conexión al guardar vehículo');
+    }
+}
+
+// Eliminar vehículo
+async function eliminarVehiculo(placa) {
+    if (!confirm(`¿Está seguro de eliminar el vehículo con placa ${placa}?`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/vehiculos/${placa}`, {
+            method: 'DELETE'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            mostrarExito('Vehículo eliminado exitosamente');
+            cargarVehiculos();
+        } else {
+            mostrarError('Error: ' + data.message);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        mostrarError('Error de conexión al eliminar vehículo');
+    }
+}
+
+// Cancelar formulario
+function cancelarFormulario() {
+    document.getElementById('formularioVehiculo').style.display = 'none';
+    document.getElementById('vehiculoForm').reset();
+}
+
+// Funciones de utilidad
+function mostrarError(mensaje) {
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'error-message';
+    errorDiv.textContent = mensaje;
+    
+    const container = document.querySelector('.container');
+    container.insertBefore(errorDiv, container.firstChild);
+    
+    setTimeout(() => {
+        errorDiv.remove();
+    }, 5000);
+}
+
+function mostrarExito(mensaje) {
+    const successDiv = document.createElement('div');
+    successDiv.className = 'success-message';
+    successDiv.textContent = mensaje;
+    
+    const container = document.querySelector('.container');
+    container.insertBefore(successDiv, container.firstChild);
+    
+    setTimeout(() => {
+        successDiv.remove();
+    }, 3000);
+}
+</script>
+</body>
+</html>
