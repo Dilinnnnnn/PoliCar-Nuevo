@@ -444,7 +444,8 @@ async function cargarRepuestosDisponibles() {
         
         lista.innerHTML = '<p style="text-align: center; color: #7f8c8d;">Cargando repuestos...</p>';
         
-        const response = await fetch('/api/repuestos');
+        const sedeActual = localStorage.getItem('sedeActual') || 'SUR';
+        const response = await fetch(`/api/repuestos/sede/${sedeActual}`);
         const data = await response.json();
         
         if (data.success && data.data && data.data.length > 0) {

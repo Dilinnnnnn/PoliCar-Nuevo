@@ -334,6 +334,9 @@ function mostrarFormularioAgregar(tipo) {
         modoEdicionSede = false;
         document.getElementById('tituloFormularioSede').textContent = 'Nuevo Empleado de Sede';
         document.getElementById('empleadoSedeForm').reset();
+        const sedeActual = localStorage.getItem('sedeActual') || 'SUR';
+        document.getElementById('empleadoSedeTaller').value = sedeActual;
+        document.getElementById('empleadoSedeCedula').disabled = true;
         document.getElementById('formularioEmpleadoSede').style.display = 'block';
     } else {
         modoEdicionNomina = false;
@@ -347,6 +350,7 @@ function mostrarFormularioAgregar(tipo) {
 function cancelarFormulario(tipo) {
     if (tipo === 'sede') {
         document.getElementById('formularioEmpleadoSede').style.display = 'none';
+        document.getElementById('empleadoSedeTaller').disabled = false;
         modoEdicionSede = false;
     } else if (tipo === 'nomina') {
         document.getElementById('formularioNomina').style.display = 'none';

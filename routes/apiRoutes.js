@@ -31,6 +31,22 @@ router.get('/status', async (req, res) => {
 });
 
 // =============================================
+// RUTA DE DIAGNÓSTICO DTC
+// =============================================
+router.get('/dtc-status', async (req, res) => {
+  try {
+    const result = await dataService.verificarEstadoDTC();
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error verificando DTC',
+      error: error.message
+    });
+  }
+});
+
+// =============================================
 // RUTAS DE CLIENTES (REPLICADAS)
 // =============================================
 
@@ -122,7 +138,7 @@ router.get('/empleados', async (req, res) => {
 // GET - Obtener nómina global (alias para empleados completos)
 router.get('/empleados/nomina', async (req, res) => {
   try {
-    const result = await dataService.obtenerNominaCompleta();
+    const result = await dataService.obtenerEmpleadosNomina();
     res.json(result);
   } catch (error) {
     res.status(500).json({
@@ -380,13 +396,15 @@ router.get('/reparaciones/sede/:sede', async (req, res) => {
 // POST - Crear nueva reparación
 router.post('/reparaciones', async (req, res) => {
   try {
-    const result = await dataService.crearReparacionSimple(req.body);
+    console.log('🔧 Recibiendo solicitud de crear reparación:', JSON.stringify(req.body, null, 2));
+    const result = await dataService.crearReparacion(req.body);
     if (result.success) {
       res.status(201).json(result);
     } else {
       res.status(400).json(result);
     }
   } catch (error) {
+    console.error('❌ ERROR EN RUTA REPARACIONES:', error);
     res.status(500).json({
       success: false,
       message: 'Error creando reparación',
